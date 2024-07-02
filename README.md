@@ -7,17 +7,7 @@ contingency-space
 How will it look in Scikit Learn Repo
 # Project Structure
 
-sklearn/
-│
-├── metrics/
-│   ├── __init__.py
-│   ├── model_performance_space.py  # Handles the generation and manipulation of confusion matrices i.e CMgenerator
-│   ├── performance_comparison.py  # Provides tools to compare models based on confusion matrices 
-│   ├── learning_path.py           # Analyzes the progression or learning paths of models
-│   └── tests/                     # Unit tests for the new modules
-│       ├── test_model_performance_space.py
-│       ├── test_performance_comparison.py
-│       └── test_learning_path.py
+/Users/siddharthareddy/Desktop/Developer/contingency-space/contingency-space/Screenshot 2024-07-01 at 7.57.11 PM.png
 └── 
 
 
