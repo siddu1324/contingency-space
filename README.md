@@ -7,8 +7,7 @@ contingency-space
 How will it look in Scikit Learn Repo
 # Project Structure
 
-/Users/siddharthareddy/Desktop/Developer/contingency-space/contingency-space/Screenshot 2024-07-01 at 7.57.11 PM.png
-└── 
+<img width="924" alt="Screenshot 2024-07-01 at 7 59 07 PM" src="https://github.com/siddu1324/contingency-space/assets/126925412/a31c91ac-2f52-452e-b981-f8e5d4764fec">
 
 
 # Module Descriptions
