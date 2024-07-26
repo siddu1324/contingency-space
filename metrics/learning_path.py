@@ -1,139 +1,108 @@
-"""# from sklearn.metrics import accuracy_score
-
-# Define a custom metric function
-def accuracy_metric(cm):
-    total_predictions = cm.tp + cm.fp + cm.fn + cm.tn
-    correct_predictions = cm.tp + cm.tn
-    return correct_predictions / total_predictions if total_predictions > 0 else 0
-
-# Create a series of confusion matrices
-cm1 = CM(tp=50, fn=10, tn=80, fp=5)
-cm2 = CM(tp=55, fn=5, tn=85, fp=0)
-cm3 = CM(tp=60, fn=0, tn=90, fp=5)
-path = [cm1, cm2, cm3]
-
-# Initialize the LearningPath with the path of CMs and the custom accuracy metric
-learning_path = LearningPath(path=path, metric=accuracy_metric)
-
-# Compute the impact of changes along the path
-learning_path.compute_impact()
-
-# Retrieve results to analyze
-results = learning_path.get_results()
-print("Evaluation Results:", results)"""
-
-
 import numpy as np
-from sklearn.utils import check_array
-from sklearn.base import BaseEstimator
-from sklearn.metrics import check_scoring
-from copy import deepcopy
+import pandas as pd
+from typing import Callable
 
-class LearningPath(BaseEstimator):
+class CM:
     """
-    Analyzes the impact of changes in model configurations over time using a sequence of confusion matrices.
-
-    Parameters
-    ----------
-    path : list of CM
-        A list of confusion matrix instances representing different states of a model.
-
-    metric : function
-        A function that takes a confusion matrix and returns a computed metric.
-
-    normalize : bool, default=True
-        Whether to normalize the confusion matrices before metric computation.
-
-    Attributes
-    ----------
-    scores_ : list
-        Scores computed for each confusion matrix in the path.
-
-    score_changes_ : list
-        Changes in scores from one confusion matrix to the next.
-
-    cm_steps_ : list
-        Distances between consecutive confusion matrices in terms of CM metrics.
-
-    cs_steps_ : list
-        Distances in a higher-dimensional space that includes the metric as an additional dimension.
-
-    triangle_areas_ : list
-        Areas of triangles formed by consecutive confusion matrices and the metric dimension.
+    Confusion matrix class for binary problems.
     """
-    def __init__(self, path, metric, normalize=True):
-        if not path:
-            raise ValueError("Path cannot be empty.")
-        self.path = deepcopy(path)
-        self.metric = check_scoring(metric, allow_none=False)
-        self.normalize = normalize
-        self.scores_ = []
-        self.score_changes_ = []
-        self.cm_steps_ = []
-        self.cs_steps_ = []
-        self.triangle_areas_ = []
-
-    def fit(self):
+    def __init__(self, tp, fn, tn, fp):
         """
-        Computes the metrics and changes along the learning path.
-
-        This method fits the model to the learning path and computes various statistics to understand the evolution of the model's performance.
-
-        Returns
-        -------
-        self : object
-            Returns self.
+        The class constructor.
         """
-        scores, score_changes, cm_steps, cs_steps, triangle_areas = [], [], [], [], []
-        pc = PerformanceComparison(self.metric, self.normalize)
+        self.tp = tp
+        self.fn = fn
+        self.tn = tn
+        self.fp = fp
+        self.n = self.tn + self.fp  # Total negatives
+        self.p = self.tp + self.fn  # Total positives
 
-        for i in range(len(self.path) - 1):
-            cm_current, cm_next = self.path[i], self.path[i + 1]
-            score_current = self.metric(cm_current)
-            score_next = self.metric(cm_next)
-            scores.append(score_current)
-
-            # Metric difference
-            score_diff = pc.compare_by_metric(cm_current, cm_next)
-            score_changes.append(score_diff)
-
-            # CM distance in the metric space
-            cm_dist = pc.compare_by_2d_distance(cm_current, cm_next)
-            cm_steps.append(cm_dist)
-
-            # CS distance including the metric as a dimension
-            cs_dist = pc.compare_by_3d_distance(cm_current, cm_next)
-            cs_steps.append(cs_dist)
-
-            # Triangle area in CS space
-            triangle_area = pc.compare_by_3d_triangle(cm_current, cm_next)
-            triangle_areas.append(triangle_area)
-
-        # Store the last score
-        scores.append(self.metric(self.path[-1]))
-
-        # Update attributes
-        self.scores_ = deepcopy(scores)
-        self.score_changes_ = deepcopy(score_changes)
-        self.cm_steps_ = deepcopy(cm_steps)
-        self.cs_steps_ = deepcopy(cs_steps)
-        self.triangle_areas_ = deepcopy(triangle_areas)
-        
-        return self
-
-    def get_results(self):
+    def normalize(self):
         """
-        Retrieves the computed results after the model has been fitted.
-
-        Returns
-        -------
-        results : dict
-            A dictionary containing the computed metrics and changes.
+        Normalizes all entries of the confusion matrix.
         """
-        return {
-            "scores": self.scores_,
-            "score_changes": self.score_changes_,
-            "cm_steps": self.cm_steps_,
-            "cs_steps": self.cs_steps_,
-            "triangle_areas": self.triangle_areas_
-        }
+        return CM(
+            tp=self.tp / self.p if self.p != 0 else 0,
+            fn=self.fn / self.p if self.p != 0 else 0,
+            tn=self.tn / self.n if self.n != 0 else 0,
+            fp=self.fp / self.n if self.n != 0 else 0
+        )
+
+    def __repr__(self):
+        return f"CM(TP: {self.tp}, FN: {self.fn}, TN: {self.tn}, FP: {self.fp})"
+
+class LearningPath:
+    """
+    Evaluates the learning path of model configurations using provided metrics.
+    """
+    def __init__(self, cms, metric_func: Callable):
+        """
+        Initializes the learning path with confusion matrices and a metric function.
+        """
+        self.cms = [cm.normalize() for cm in cms]  # Normalize all CMs
+        self.metric_func = metric_func
+        self.metric_values = [self.normalize_metric(metric_func(cm)) for cm in self.cms]
+        self.points_2d = [(cm.tn / (cm.tn + cm.fp), cm.tp / (cm.tp + cm.fn)) for cm in self.cms]
+        self.points_3d = [(cm.tn / (cm.tn + cm.fp), cm.tp / (cm.tp + cm.fn), self.metric_func(cm)) for cm in self.cms]
+
+    def normalize_metric(self, value):
+        """
+        Normalizes metric values to the range [0, 1].
+        Example normalization: (value + 1) / 2 for metrics in range [-1, 1]
+        """
+        return (value + 1) / 2 if value < 0 else value
+
+    def compute_2d_path_length(self):
+        """
+        Computes the 2D Euclidean distance ('length') along the path using TNR and TPR coordinates.
+        """
+        return sum(np.linalg.norm(np.array(self.points_2d[i+1]) - np.array(self.points_2d[i])) for i in range(len(self.points_2d) - 1))
+
+    def compute_3d_path_length(self):
+        """
+        Computes the 3D Euclidean distance along the path using TNR, TPR, and metric value as coordinates.
+        """
+        return sum(np.linalg.norm(np.array(self.points_3d[i+1]) - np.array(self.points_3d[i])) for i in range(len(self.points_3d) - 1))
+
+    def __repr__(self):
+        return f"LearningPath with {len(self.cms)} points. 2D Length: {self.compute_2d_path_length()}, 3D Length: {self.compute_3d_path_length()}"
+
+# Example Usage:
+def accuracy_metric(cm):
+    return (cm.tp + cm.tn) / (cm.tp + cm.fn + cm.tn + cm.fp) if (cm.tp + cm.fn + cm.tn + cm.fp) != 0 else 0
+
+# Sample CMs for testing
+cms = [
+    CM(50, 50, 30, 70),
+    CM(60, 40, 40, 60),
+    CM(70, 30, 50, 50),
+    CM(80, 30, 40, 60),
+]
+
+path = LearningPath(cms, accuracy_metric)
+print(path)
+
+
+def matthews_correlation_coefficient(cm):
+    """
+    Calculates the Matthews Correlation Coefficient for a given confusion matrix.
+    """
+    TP = cm.tp
+    TN = cm.tn
+    FP = cm.fp
+    FN = cm.fn
+    
+    numerator = (TP * TN) - (FP * FN)
+    denominator = np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+    
+    return numerator / denominator if denominator != 0 else 0
+
+cms2 = [
+    CM(50, 10, 80, 10),
+    CM(60, 20, 60, 40),
+    CM(70, 10, 90, 10),
+    CM(85, 15, 80, 20),
+]
+
+path = LearningPath(cms2, matthews_correlation_coefficient)
+print(path)

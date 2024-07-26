@@ -129,3 +129,52 @@ imbalance_ratio (float): The specific imbalance ratio to use.
 Output:
 
 np.ndarray: A matrix representing the metric evaluations across different conditions.
+
+
+import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import CMGenerator, ContingencySpace
+
+# Generate some sample data
+X, y = make_classification(n_samples=1000, n_features=20, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+# Assume we have a model that outputs probabilities
+model = SomeTrainedModel()
+y_probs = model.predict_proba(X_test)
+
+# Initialize the CMGenerator
+cm_generator = CMGenerator(y_test, y_probs[:, 1])
+
+# Define metrics to evaluate
+metrics = {
+    'Accuracy': lambda cm: np.trace(cm) / np.sum(cm),
+    'Sensitivity': lambda cm: cm[1, 1] / np.sum(cm[1, :])
+}
+
+# Initialize the Contingency Space with the generator and metrics
+contingency_space = ContingencySpace(cm_generator, metrics)
+
+# Generate and print the contingency space analysis
+results = contingency_space.generate_contingency_space(normalize='true')
+print("Contingency Space Results:", results)
+
+# Compute imbalance sensitivity
+imbalance_sensitivity = contingency_space.compute_imbalance_sensitivity(metrics['Sensitivity'], 0.5)
+print("Imbalance Sensitivity:", imbalance_sensitivity)
+
+
+cms = self.cm_generator.generate_cms()
+        results = {metric_name: [] for metric_name in self.metrics}
+        for cm in cms:
+            for metric_name, metric_func in self.metrics.items():
+                results[metric_name].append(metric_func(cm))
+        return results
+
+
+        def compute_metric_values(self, cms, metric):
+        """
+        Calculate metric values for all confusion matrices using the given metric function.
+        """
+        return [metric(cm) for cm in cms]

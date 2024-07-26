@@ -1,0 +1,9 @@
+cms[] = [] 
+mu = func
+n_cm = 10 
+n_p = 1000 , n_n = 1000
+imbalance_ratio = n_n / n_p 
+
+Sensitivity = ContingencySpace.compute_imbalance_sensitivity(metric, imbalance_ratio, n_cm = 10 )
+
+length = LearningPath.lengths_of_path()
